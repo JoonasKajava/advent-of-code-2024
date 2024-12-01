@@ -23,6 +23,14 @@ fn pair_and_calc_distance(left: Vec<usize>, right: Vec<usize>) -> Vec<usize> {
     distances
 }
 
+fn calc_similarity(left: Vec<usize>, right: Vec<usize>) -> usize {
+    let mut score = 0usize;
+    for num in left {
+        score += right.iter().filter(|f| **f == num).sum::<usize>();
+    }
+    score
+}
+
 fn partone() {
     let input = fs::read_to_string("./src/real-input.txt").unwrap();
 
@@ -35,8 +43,18 @@ fn partone() {
     println!("{}", result)
 }
 
+fn parttwo() {
+    let input = fs::read_to_string("./src/real-input.txt").unwrap();
+
+    let (left, right) = split_to_sides(input);
+
+    let result = calc_similarity(left, right);
+
+    println!("{}", result)
+}
+
 fn main() {
-    partone();
+    parttwo();
 }
 
 #[cfg(test)]
@@ -50,5 +68,15 @@ mod tests {
 
         assert_eq!(left, vec![3, 4, 2, 1, 3, 3]);
         assert_eq!(right, vec![4, 3, 5, 3, 9, 3]);
+    }
+
+    #[test]
+    fn test_calc_similarity() {
+        let input = fs::read_to_string("./src/test-input.txt").unwrap();
+        let (left, right) = split_to_sides(input);
+
+        let similarity = calc_similarity(left, right);
+
+        assert_eq!(similarity, 31);
     }
 }
