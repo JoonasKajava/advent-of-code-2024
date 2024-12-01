@@ -23,7 +23,7 @@ fn pair_and_calc_distance(left: Vec<usize>, right: Vec<usize>) -> Vec<usize> {
     distances
 }
 
-fn main() {
+fn partone() {
     let input = fs::read_to_string("./src/real-input.txt").unwrap();
 
     let (mut left, mut right) = split_to_sides(input);
@@ -33,6 +33,10 @@ fn main() {
     let result: usize = pair_and_calc_distance(left, right).iter().sum();
 
     println!("{}", result)
+}
+
+fn main() {
+    partone();
 }
 
 #[cfg(test)]
