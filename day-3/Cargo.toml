@@ -1,6 +1,5 @@
-workspace = { members = ["day-1", "day-2", "day-3"] }
 [package]
-name = "advent-of-code-2024"
+name = "day-3"
 version = "0.1.0"
 edition = "2021"
 
