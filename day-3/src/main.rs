@@ -15,13 +15,23 @@ fn find_muls(string: &str) -> Vec<(usize, usize)> {
     results
 }
 
+fn find_muls_part2(string: &str) -> Vec<(usize, usize)> {
+    let string_without_whitespace = string
+        .chars()
+        .filter(|c| !c.is_whitespace())
+        .collect::<String>();
+    let regex = Regex::new(r"don't\(\)(.+?)do\(\)").unwrap();
+
+    let cleaned = regex.replace_all(&string_without_whitespace, "");
+    find_muls(cleaned.as_ref())
+}
 fn add_up(values: Vec<(usize, usize)>) -> usize {
     values.iter().fold(0usize, |acc, e| acc + (e.0 * e.1))
 }
 
 fn main() {
     let input = fs::read_to_string("./src/input.txt").unwrap();
-    let muls = find_muls(&input);
+    let muls = find_muls_part2(&input);
     let sum = add_up(muls);
     dbg!(sum);
 }
@@ -34,6 +44,14 @@ fn test_find_muls() {
     assert_eq!(result, vec![(2, 4), (5, 5), (11, 8), (8, 5)])
 }
 
+#[test]
+fn test_find_muls_part2() {
+    let result = find_muls_part2(
+        "xmul(2,4)&mul[3,7]!^don't()_mul(5,5)+mul(32,64](mul(11,8)undo()?mul(8,5))",
+    );
+
+    assert_eq!(result, vec![(2, 4), (8, 5)])
+}
 #[test]
 fn test_add_up() {
     let values = vec![(2, 4), (5, 5), (11, 8), (8, 5)];
