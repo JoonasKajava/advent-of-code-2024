@@ -66,14 +66,38 @@ fn part_one(input: &str) -> usize {
     count
 }
 
+fn part_two(input: &str) -> usize {
+    let rules = parse_ordering_rules(&input);
+    let all_pages = parse_pages(&input);
+    let mut count = 0usize;
+
+    for page in all_pages {
+        let reordered = reorder(&rules, &page);
+        let middle = reordered.get(reordered.len() / 2).unwrap();
+        if reordered != page {
+            count += middle;
+        }
+    }
+    count
+}
+
 fn main() {
     let input = fs::read_to_string("./src/puzzle-input.txt").unwrap();
     let count = part_one(&input);
-    println!("\n Result {}", count);
+    println!("\n Part one result {}", count);
+
+    let count = part_two(&input);
+    println!("\n Part two result {}", count);
 }
 
 #[test]
 fn test_count() {
     let input = fs::read_to_string("./src/example.txt").unwrap();
     assert_eq!(part_one(&input), 143);
+}
+
+#[test]
+fn test_part_two() {
+    let input = fs::read_to_string("./src/example.txt").unwrap();
+    assert_eq!(part_two(&input), 123);
 }
