@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fs};
+use std::{collections::HashMap, fs, ops};
 
 type Point = (isize, isize);
 
@@ -8,11 +8,19 @@ enum Tile {
     OutOfBounds,
 }
 
-#[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Copy, Clone)]
+#[derive(PartialEq, Eq, PartialOrd, Ord)]
+enum PartolResult {
+    Loop,
+    Escape,
+}
+
+#[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Copy, Clone, Hash)]
 struct Vector {
     x: isize,
     y: isize,
 }
+
+type VisitedTiles = HashMap<Vector, Vec<Vector>>;
 
 impl Vector {
     fn rotate_right(&mut self) {
@@ -27,11 +35,20 @@ impl Vector {
     }
 }
 
+impl ops::AddAssign<Vector> for Vector {
+    fn add_assign(&mut self, rhs: Vector) {
+        self.x += rhs.x;
+        self.y += rhs.y;
+    }
+}
+
+#[derive(Clone)]
 struct Map {
     map: HashMap<Point, char>,
     guard_position: Vector,
     guard_direction: Vector,
-    distinct_points_visited: Vec<Vector>,
+    distinct_points_visited: VisitedTiles,
+    new_obstructions: Vec<Vector>,
 }
 
 impl Map {
@@ -48,28 +65,73 @@ impl Map {
                 result.insert((x as isize, y as isize), char);
             }
         }
+        let guard_direction = Vector::new(0, 1);
         Map {
             map: result,
             guard_position,
-            guard_direction: Vector::new(0, 1),
-            distinct_points_visited: vec![guard_position],
+            guard_direction,
+            distinct_points_visited: HashMap::from([(guard_position, vec![guard_direction])]),
+            new_obstructions: vec![],
         }
     }
 
-    fn guard_partol(&mut self) {
+    fn upsert_visited_tile(&mut self, pos: Vector, dir: Vector) {
+        match self.distinct_points_visited.get_mut(&pos) {
+            Some(tile) => {
+                tile.push(dir);
+            }
+            None => {
+                self.distinct_points_visited.insert(pos, vec![dir]);
+            }
+        };
+    }
+
+    fn does_rotating_here_cause_loop(&self, pos: Vector, mut guard_dir: Vector) -> bool {
+        let mut simulation_map = self.clone();
+
+        simulation_map
+            .map
+            .insert((pos.x + guard_dir.x, pos.y + guard_dir.y), '#');
+
+        guard_dir.rotate_right();
+
+        if simulation_map.guard_partol(false) == PartolResult::Loop {
+            return true;
+        }
+
+        false
+    }
+
+    fn guard_partol(&mut self, create_obstructions: bool) -> PartolResult {
         loop {
             let next_pos = self.get_next_pos();
             let next_location = self.check_next_position(&next_pos);
 
+            if let Some(loc) = self.distinct_points_visited.get(&next_pos) {
+                if loc.contains(&self.guard_direction) {
+                    return PartolResult::Loop;
+                }
+            }
             match next_location {
                 Tile::Empty => {
-                    self.guard_position = next_pos;
-                    if !self.distinct_points_visited.contains(&next_pos) {
-                        self.distinct_points_visited.push(next_pos);
+                    if create_obstructions
+                        && self.does_rotating_here_cause_loop(
+                            self.guard_position,
+                            self.guard_direction,
+                        )
+                    {
+                        self.new_obstructions.push(next_pos);
                     }
+
+                    self.guard_position = next_pos;
+
+                    self.upsert_visited_tile(self.guard_position, self.guard_direction);
                 }
-                Tile::Obstruction => self.guard_direction.rotate_right(),
-                Tile::OutOfBounds => break,
+                Tile::Obstruction => {
+                    self.guard_direction.rotate_right();
+                    self.upsert_visited_tile(self.guard_position, self.guard_direction);
+                }
+                Tile::OutOfBounds => return PartolResult::Escape,
             }
         }
     }
@@ -94,8 +156,9 @@ impl Map {
 fn main() {
     let input = fs::read_to_string("./src/puzzle.txt").unwrap();
     let mut map = Map::from(&input);
-    map.guard_partol();
-    println!("Tiles visited {}", map.distinct_points_visited.len())
+    map.guard_partol(true);
+    println!("Tiles visited {}", map.distinct_points_visited.len());
+    println!("New Obstructions {}", map.new_obstructions.len());
 }
 
 #[test]
@@ -118,6 +181,42 @@ fn test_rotate_right() {
 fn test_example() {
     let input = fs::read_to_string("./src/example.txt").unwrap();
     let mut example = Map::from(&input);
-    example.guard_partol();
+    example.guard_partol(false);
     assert_eq!(example.distinct_points_visited.len(), 41);
+}
+
+#[test]
+fn test_new_obstructions() {
+    let input = fs::read_to_string("./src/example.txt").unwrap();
+    let mut example = Map::from(&input);
+
+    println!("Guard position {:?}", example.guard_position);
+    example.guard_partol(true);
+    println!("new_obstructions = {:?}", example.new_obstructions);
+
+    assert!(
+        example.new_obstructions.contains(&Vector::new(3, 4)),
+        "Option one"
+    );
+
+    assert!(
+        example.new_obstructions.contains(&Vector::new(6, 3)),
+        "Option two"
+    );
+    assert!(
+        example.new_obstructions.contains(&Vector::new(6, 3)),
+        "Option three"
+    );
+    assert!(
+        example.new_obstructions.contains(&Vector::new(1, 2)),
+        "Option four"
+    );
+    assert!(
+        example.new_obstructions.contains(&Vector::new(3, 2)),
+        "Option five"
+    );
+    assert!(
+        example.new_obstructions.contains(&Vector::new(7, 1)),
+        "Option six"
+    );
 }
