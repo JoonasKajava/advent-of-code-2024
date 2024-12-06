@@ -103,6 +103,7 @@ impl Map {
         let mut simulation_map = self.clone();
 
         simulation_map.map.insert(pos + guard_dir, '#');
+        simulation_map.guard_direction.rotate_right();
 
         if simulation_map.guard_partol(false) == PartolResult::Loop {
             return true;
@@ -113,11 +114,11 @@ impl Map {
 
     fn guard_partol(&mut self, create_obstructions: bool) -> PartolResult {
         loop {
-            let next_pos = self.get_next_pos();
+            let next_pos = self.guard_position + self.guard_direction;
             let next_location = self.check_next_position(&next_pos);
 
-            if let Some(loc) = self.distinct_points_visited.get(&next_pos) {
-                if loc.contains(&self.guard_direction) {
+            if let Some(directions) = self.distinct_points_visited.get(&next_pos) {
+                if directions.contains(&self.guard_direction) {
                     return PartolResult::Loop;
                 }
             }
@@ -140,16 +141,11 @@ impl Map {
                     self.guard_direction.rotate_right();
                     self.upsert_visited_tile(self.guard_position, self.guard_direction);
                 }
-                Tile::OutOfBounds => return PartolResult::Escape,
+                Tile::OutOfBounds => {
+                    return PartolResult::Escape;
+                }
             }
         }
-    }
-
-    fn get_next_pos(&self) -> Vector {
-        Vector::new(
-            self.guard_position.x + self.guard_direction.x,
-            self.guard_position.y + self.guard_direction.y,
-        )
     }
 
     fn check_next_position(&self, next_pos: &Vector) -> Tile {
