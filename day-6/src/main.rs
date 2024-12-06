@@ -60,6 +60,8 @@ struct Map {
     map: HashMap<Vector, char>,
     guard_position: Vector,
     guard_direction: Vector,
+    original_guard_position: Vector,
+    original_guard_direction: Vector,
     distinct_points_visited: VisitedTiles,
     new_obstructions: Vec<Vector>,
 }
@@ -83,6 +85,8 @@ impl Map {
             map: result,
             guard_position,
             guard_direction,
+            original_guard_position: guard_position,
+            original_guard_direction: guard_direction,
             distinct_points_visited: HashMap::from([(guard_position, vec![guard_direction])]),
             new_obstructions: vec![],
         }
@@ -103,7 +107,12 @@ impl Map {
         let mut simulation_map = self.clone();
 
         simulation_map.map.insert(pos + guard_dir, '#');
-        simulation_map.guard_direction.rotate_right();
+        simulation_map.guard_direction = simulation_map.original_guard_direction;
+        simulation_map.guard_position = simulation_map.original_guard_position;
+        simulation_map.distinct_points_visited = HashMap::from([(
+            simulation_map.guard_position,
+            vec![simulation_map.guard_direction],
+        )]);
 
         if simulation_map.guard_partol(false) == PartolResult::Loop {
             return true;
@@ -161,6 +170,7 @@ impl Map {
 fn main() {
     let input = fs::read_to_string("./src/puzzle.txt").unwrap();
     let mut map = Map::from(&input);
+    for test in map.map {}
     map.guard_partol(true);
     println!("Tiles visited {}", map.distinct_points_visited.len());
     println!("New Obstructions {}", map.new_obstructions.len());
