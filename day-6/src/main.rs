@@ -1,6 +1,8 @@
-use std::{collections::HashMap, fs, ops};
-
-type Point = (isize, isize);
+use std::{
+    collections::HashMap,
+    fs,
+    ops::{self, Add},
+};
 
 enum Tile {
     Empty,
@@ -42,9 +44,20 @@ impl ops::AddAssign<Vector> for Vector {
     }
 }
 
+impl Add<Vector> for Vector {
+    type Output = Self;
+
+    fn add(self, rhs: Vector) -> Self::Output {
+        Self {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+        }
+    }
+}
+
 #[derive(Clone)]
 struct Map {
-    map: HashMap<Point, char>,
+    map: HashMap<Vector, char>,
     guard_position: Vector,
     guard_direction: Vector,
     distinct_points_visited: VisitedTiles,
@@ -53,7 +66,7 @@ struct Map {
 
 impl Map {
     fn from(input: &str) -> Map {
-        let mut result: HashMap<Point, char> = HashMap::new();
+        let mut result: HashMap<Vector, char> = HashMap::new();
         let mut guard_position = Vector::new(0, 0);
         let line_num = input.lines().count();
         for (y, line) in input.lines().enumerate() {
@@ -62,7 +75,7 @@ impl Map {
                 if char == '^' {
                     guard_position = Vector::new(x as isize, y as isize);
                 }
-                result.insert((x as isize, y as isize), char);
+                result.insert(Vector::new(x as isize, y as isize), char);
             }
         }
         let guard_direction = Vector::new(0, 1);
@@ -86,14 +99,10 @@ impl Map {
         };
     }
 
-    fn does_rotating_here_cause_loop(&self, pos: Vector, mut guard_dir: Vector) -> bool {
+    fn does_rotating_here_cause_loop(&self, pos: Vector, guard_dir: Vector) -> bool {
         let mut simulation_map = self.clone();
 
-        simulation_map
-            .map
-            .insert((pos.x + guard_dir.x, pos.y + guard_dir.y), '#');
-
-        guard_dir.rotate_right();
+        simulation_map.map.insert(pos + guard_dir, '#');
 
         if simulation_map.guard_partol(false) == PartolResult::Loop {
             return true;
@@ -144,7 +153,7 @@ impl Map {
     }
 
     fn check_next_position(&self, next_pos: &Vector) -> Tile {
-        let position = self.map.get(&(next_pos.x, next_pos.y));
+        let position = self.map.get(next_pos);
         match position {
             Some(char) if *char == '#' => Tile::Obstruction,
             Some(_) => Tile::Empty,
