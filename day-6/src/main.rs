@@ -60,10 +60,7 @@ struct Map {
     map: HashMap<Vector, char>,
     guard_position: Vector,
     guard_direction: Vector,
-    original_guard_position: Vector,
-    original_guard_direction: Vector,
     distinct_points_visited: VisitedTiles,
-    new_obstructions: Vec<Vector>,
 }
 
 impl Map {
@@ -85,10 +82,7 @@ impl Map {
             map: result,
             guard_position,
             guard_direction,
-            original_guard_position: guard_position,
-            original_guard_direction: guard_direction,
             distinct_points_visited: HashMap::from([(guard_position, vec![guard_direction])]),
-            new_obstructions: vec![],
         }
     }
 
@@ -103,25 +97,7 @@ impl Map {
         };
     }
 
-    fn does_rotating_here_cause_loop(&self, pos: Vector, guard_dir: Vector) -> bool {
-        let mut simulation_map = self.clone();
-
-        simulation_map.map.insert(pos + guard_dir, '#');
-        simulation_map.guard_direction = simulation_map.original_guard_direction;
-        simulation_map.guard_position = simulation_map.original_guard_position;
-        simulation_map.distinct_points_visited = HashMap::from([(
-            simulation_map.guard_position,
-            vec![simulation_map.guard_direction],
-        )]);
-
-        if simulation_map.guard_partol(false) == PartolResult::Loop {
-            return true;
-        }
-
-        false
-    }
-
-    fn guard_partol(&mut self, create_obstructions: bool) -> PartolResult {
+    fn guard_partol(&mut self) -> PartolResult {
         loop {
             let next_pos = self.guard_position + self.guard_direction;
             let next_location = self.check_next_position(&next_pos);
@@ -133,15 +109,6 @@ impl Map {
             }
             match next_location {
                 Tile::Empty => {
-                    if create_obstructions
-                        && self.does_rotating_here_cause_loop(
-                            self.guard_position,
-                            self.guard_direction,
-                        )
-                    {
-                        self.new_obstructions.push(next_pos);
-                    }
-
                     self.guard_position = next_pos;
 
                     self.upsert_visited_tile(self.guard_position, self.guard_direction);
@@ -169,11 +136,19 @@ impl Map {
 
 fn main() {
     let input = fs::read_to_string("./src/puzzle.txt").unwrap();
-    let mut map = Map::from(&input);
-    for test in map.map {}
-    map.guard_partol(true);
-    println!("Tiles visited {}", map.distinct_points_visited.len());
-    println!("New Obstructions {}", map.new_obstructions.len());
+    let map = Map::from(&input);
+    let mut count = 0;
+    for tile in map.map.iter() {
+        if *tile.1 != '.' {
+            continue;
+        }
+        let mut simulation_map = map.clone();
+        simulation_map.map.insert(*tile.0, '#');
+        if simulation_map.guard_partol() == PartolResult::Loop {
+            count += 1;
+        }
+    }
+    println!("count: {}", count);
 }
 
 #[test]
@@ -196,42 +171,6 @@ fn test_rotate_right() {
 fn test_example() {
     let input = fs::read_to_string("./src/example.txt").unwrap();
     let mut example = Map::from(&input);
-    example.guard_partol(false);
+    example.guard_partol();
     assert_eq!(example.distinct_points_visited.len(), 41);
-}
-
-#[test]
-fn test_new_obstructions() {
-    let input = fs::read_to_string("./src/example.txt").unwrap();
-    let mut example = Map::from(&input);
-
-    println!("Guard position {:?}", example.guard_position);
-    example.guard_partol(true);
-    println!("new_obstructions = {:?}", example.new_obstructions);
-
-    assert!(
-        example.new_obstructions.contains(&Vector::new(3, 4)),
-        "Option one"
-    );
-
-    assert!(
-        example.new_obstructions.contains(&Vector::new(6, 3)),
-        "Option two"
-    );
-    assert!(
-        example.new_obstructions.contains(&Vector::new(6, 3)),
-        "Option three"
-    );
-    assert!(
-        example.new_obstructions.contains(&Vector::new(1, 2)),
-        "Option four"
-    );
-    assert!(
-        example.new_obstructions.contains(&Vector::new(3, 2)),
-        "Option five"
-    );
-    assert!(
-        example.new_obstructions.contains(&Vector::new(7, 1)),
-        "Option six"
-    );
 }
