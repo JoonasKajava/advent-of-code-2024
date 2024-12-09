@@ -14,6 +14,9 @@ fn compress(mut disk: Disk) -> Disk {
 
         let last: Id = {
             loop {
+                if i > disk.len() - 1 {
+                    break 'outer;
+                }
                 let Some(last_item) = disk.pop() else {
                     break 'outer;
                 };
@@ -24,9 +27,6 @@ fn compress(mut disk: Disk) -> Disk {
             }
         };
 
-        if i >= disk.len() {
-            break;
-        }
         disk[i] = Some(last);
 
         i += 1;
@@ -64,9 +64,10 @@ fn checksum(input: Disk) -> usize {
     let mut result = 0;
     for (i, item) in input.iter().enumerate() {
         if let Some(num) = item {
+            println!("id {}", num);
             result += i * *num;
         } else {
-            break;
+            continue;
         }
     }
     result
@@ -125,4 +126,11 @@ fn test_edge_case() {
     let edge_case = "1010101010101010101010";
     let checksum = process(edge_case);
     assert_eq!(checksum, 385);
+}
+
+#[test]
+fn test_edge_case2() {
+    let edge_case = "12345";
+    let checksum = process(edge_case);
+    assert_eq!(checksum, 60);
 }
