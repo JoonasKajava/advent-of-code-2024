@@ -37,16 +37,17 @@ fn compile_whole_files(disk: &Disk) -> Vec<WholeFile> {
 }
 
 fn compress_part2(mut disk: Disk) -> Disk {
-    let mut compiled = compile_whole_files(&disk);
+    let mut static_compiled = compile_whole_files(&disk);
+    static_compiled.sort_by(|a, b| a.id.cmp(&b.id));
+    let mut dynamic_compiled = compile_whole_files(&disk);
 
-    let mut i: isize = compiled.len() as isize - 1isize;
+    let mut i: isize = static_compiled.len() as isize - 1isize;
 
     loop {
         if i <= 0 {
             break;
         }
-        let Some(file) = compiled.get(i as usize) else {
-            println!("tdsfads");
+        let Some(file) = static_compiled.get(i as usize) else {
             break;
         };
         let Some(file_id) = file.id else {
@@ -54,7 +55,7 @@ fn compress_part2(mut disk: Disk) -> Disk {
             continue;
         };
 
-        let Some(free_position) = compiled
+        let Some(free_position) = dynamic_compiled
             .iter()
             .find(|x| x.id.is_none() && x.size >= file.size && file.start_index > x.start_index)
         else {
@@ -68,9 +69,8 @@ fn compress_part2(mut disk: Disk) -> Disk {
         for x in file.start_index..file.end_index {
             disk[x] = None;
         }
-        println!("disk {}", disk_to_string(&disk));
         i -= 1;
-        compiled = compile_whole_files(&disk);
+        dynamic_compiled = compile_whole_files(&disk);
     }
     disk
 }
@@ -138,7 +138,6 @@ fn checksum(input: Disk) -> usize {
     let mut result = 0;
     for (i, item) in input.iter().enumerate() {
         if let Some(num) = item {
-            println!("id {}", num);
             result += i * *num;
         } else {
             continue;
@@ -149,15 +148,19 @@ fn checksum(input: Disk) -> usize {
 
 fn process(input: &str, part2: bool) -> usize {
     let disk = create_disk(input);
-    println!("disk {}", disk_to_string(&disk));
     let compress = match part2 {
         true => compress_part2(disk),
         false => compress(disk),
     };
-    println!("compressed {}", disk_to_string(&compress));
     checksum(compress)
 }
 
+fn part_two() {
+    let input = fs::read_to_string("./src/puzzle.txt").unwrap();
+    let result = process(input.trim(), true);
+
+    println!("Part two Checksum = {}", result);
+}
 fn part_one() {
     let input = fs::read_to_string("./src/puzzle.txt").unwrap();
     let result = process(input.trim(), false);
@@ -178,6 +181,7 @@ fn disk_to_string(disk: &Disk) -> String {
 
 fn main() {
     part_one();
+    part_two();
 }
 
 #[test]
@@ -216,4 +220,14 @@ fn test_edge_case2() {
     let edge_case = "12345";
     let checksum = process(edge_case, false);
     assert_eq!(checksum, 60);
+
+    let checksum = process(edge_case, true);
+    assert_eq!(checksum, 132);
+}
+
+#[test]
+fn test_edge_case3() {
+    let edge_case = "14113";
+    let checksum = process(edge_case, true);
+    assert_eq!(checksum, 16);
 }
