@@ -1,5 +1,79 @@
 use std::fs;
 
+#[derive(Debug)]
+struct WholeFile {
+    start_index: usize,
+    end_index: usize,
+    size: usize,
+    id: Option<Id>,
+}
+
+fn compile_whole_files(disk: &Disk) -> Vec<WholeFile> {
+    let mut result: Vec<WholeFile> = vec![];
+    let mut previous_block: Option<Id> = *disk.first().unwrap();
+    let mut previous_block_start = 0;
+    for (i, block) in disk.iter().enumerate() {
+        let Some(next_block) = disk.get(i) else {
+            break;
+        };
+        if previous_block != *next_block {
+            result.push(WholeFile {
+                start_index: previous_block_start,
+                end_index: i,
+                size: i - previous_block_start,
+                id: previous_block,
+            });
+            previous_block = *next_block;
+            previous_block_start = i;
+        }
+    }
+    result.push(WholeFile {
+        start_index: previous_block_start,
+        end_index: disk.len(),
+        size: disk.len() - previous_block_start,
+        id: previous_block,
+    });
+    result
+}
+
+fn compress_part2(mut disk: Disk) -> Disk {
+    let mut compiled = compile_whole_files(&disk);
+
+    let mut i: isize = compiled.len() as isize - 1isize;
+
+    loop {
+        if i <= 0 {
+            break;
+        }
+        let Some(file) = compiled.get(i as usize) else {
+            println!("tdsfads");
+            break;
+        };
+        let Some(file_id) = file.id else {
+            i -= 1;
+            continue;
+        };
+
+        let Some(free_position) = compiled
+            .iter()
+            .find(|x| x.id.is_none() && x.size >= file.size && file.start_index > x.start_index)
+        else {
+            i -= 1;
+            continue;
+        };
+
+        for x in free_position.start_index..free_position.start_index + file.size {
+            disk[x] = Some(file_id);
+        }
+        for x in file.start_index..file.end_index {
+            disk[x] = None;
+        }
+        println!("disk {}", disk_to_string(&disk));
+        i -= 1;
+        compiled = compile_whole_files(&disk);
+    }
+    disk
+}
 fn compress(mut disk: Disk) -> Disk {
     let mut i = 0usize;
     'outer: loop {
@@ -73,17 +147,20 @@ fn checksum(input: Disk) -> usize {
     result
 }
 
-fn process(input: &str) -> usize {
+fn process(input: &str, part2: bool) -> usize {
     let disk = create_disk(input);
     println!("disk {}", disk_to_string(&disk));
-    let compress = compress(disk);
+    let compress = match part2 {
+        true => compress_part2(disk),
+        false => compress(disk),
+    };
     println!("compressed {}", disk_to_string(&compress));
     checksum(compress)
 }
 
 fn part_one() {
     let input = fs::read_to_string("./src/puzzle.txt").unwrap();
-    let result = process(input.trim());
+    let result = process(input.trim(), false);
 
     println!("Part one Checksum = {}", result);
 }
@@ -117,20 +194,26 @@ fn test_example() {
 #[test]
 fn test_part_one_example() {
     let example = "2333133121414131402";
-    let checksum = process(example);
+    let checksum = process(example, false);
     assert_eq!(checksum, 1928)
 }
 
 #[test]
+fn test_part_two_example() {
+    let example = "2333133121414131402";
+    let checksum = process(example, true);
+    assert_eq!(checksum, 2858)
+}
+#[test]
 fn test_edge_case() {
     let edge_case = "1010101010101010101010";
-    let checksum = process(edge_case);
+    let checksum = process(edge_case, false);
     assert_eq!(checksum, 385);
 }
 
 #[test]
 fn test_edge_case2() {
     let edge_case = "12345";
-    let checksum = process(edge_case);
+    let checksum = process(edge_case, false);
     assert_eq!(checksum, 60);
 }
