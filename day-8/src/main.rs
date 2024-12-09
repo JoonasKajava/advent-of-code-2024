@@ -1,8 +1,9 @@
 use std::{
     collections::{HashMap, HashSet},
     fs,
-    ops::{self, Add, Sub},
 };
+
+use shared::vector::Vector;
 
 struct Bounds {
     x: isize,
@@ -26,56 +27,6 @@ impl Bounds {
     fn is_within(&self, vector: &Vector) -> bool {
         vector.x >= self.x && vector.x < self.width && vector.y >= self.y && vector.y < self.height
     }
-}
-
-impl Vector {
-    fn new(x: isize, y: isize) -> Vector {
-        Vector { x, y }
-    }
-
-    fn delta(&self, other: &Vector) -> Vector {
-        other - self
-    }
-    fn mirror(&self) -> Vector {
-        Vector {
-            x: -self.x,
-            y: -self.y,
-        }
-    }
-}
-
-impl ops::AddAssign<Vector> for Vector {
-    fn add_assign(&mut self, rhs: Vector) {
-        self.x += rhs.x;
-        self.y += rhs.y;
-    }
-}
-
-impl Add<Vector> for Vector {
-    type Output = Self;
-
-    fn add(self, rhs: Vector) -> Self::Output {
-        Self {
-            x: self.x + rhs.x,
-            y: self.y + rhs.y,
-        }
-    }
-}
-impl Sub<&Vector> for &Vector {
-    type Output = Vector;
-
-    fn sub(self, rhs: &Vector) -> Self::Output {
-        Vector {
-            x: self.x - rhs.x,
-            y: self.y - rhs.y,
-        }
-    }
-}
-
-#[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Copy, Clone, Hash)]
-struct Vector {
-    x: isize,
-    y: isize,
 }
 
 type AntennaMap = HashMap<char, Vec<Vector>>;
