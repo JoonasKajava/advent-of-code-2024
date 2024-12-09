@@ -1,46 +1,55 @@
-use std::{char, fs};
+use std::fs;
 
-fn compress(input: &str) -> String {
-    let mut charaters: Vec<char> = input.chars().collect();
-    let mut head_index = 0usize;
-    loop {
-        let Some(char) = charaters.get(head_index) else {
+fn compress(mut disk: Disk) -> Disk {
+    let mut i = 0usize;
+    'outer: loop {
+        let Some(item) = disk.get(i) else {
             break;
         };
-        if *char == '.' {
-            let mut tail_counter = 0usize;
-            loop {
-                let tail_index = (charaters.len() - 1) - tail_counter;
 
-                if tail_index <= head_index {
-                    break;
-                }
-
-                let Some(tail_char) = charaters.get(tail_index) else {
-                    break;
-                };
-                if tail_char.is_ascii_digit() {
-                    charaters.swap(head_index, tail_index);
-                    break;
-                }
-                tail_counter += 1;
-            }
+        if item.is_some() {
+            i += 1;
+            continue;
         }
-        head_index += 1;
+
+        let last: Id = {
+            loop {
+                let Some(last_item) = disk.pop() else {
+                    break 'outer;
+                };
+                match last_item {
+                    Some(l) => break l,
+                    None => continue,
+                }
+            }
+        };
+
+        if i >= disk.len() {
+            break;
+        }
+        disk[i] = Some(last);
+
+        i += 1;
     }
-    charaters.iter().collect()
+
+    disk
 }
 
-fn create(input: &str) -> String {
-    let mut id = 0;
+type Id = usize;
+
+type Disk = Vec<Option<Id>>;
+
+fn create_disk(input: &str) -> Disk {
+    let mut id = 0usize;
     let mut switch = true;
-    let mut result = "".to_owned();
+    let mut disk: Vec<Option<Id>> = vec![];
+
     for char in input.chars() {
         let num = char.to_digit(10).unwrap();
         for _ in 0..num {
             match switch {
-                true => result += &id.to_string(),
-                false => result += ".",
+                true => disk.push(Some(id)),
+                false => disk.push(None),
             };
         }
         if switch {
@@ -48,28 +57,45 @@ fn create(input: &str) -> String {
         }
         switch = !switch;
     }
-    result.to_owned()
+    disk
 }
 
-fn checksum(input: &str) -> usize {
+fn checksum(input: Disk) -> usize {
     let mut result = 0;
-    for (i, char) in input.chars().enumerate() {
-        let Some(num) = char.to_digit(10) else {
+    for (i, item) in input.iter().enumerate() {
+        if let Some(num) = item {
+            result += i * *num;
+        } else {
             break;
-        };
-
-        result += i * num as usize;
+        }
     }
     result
 }
 
+fn process(input: &str) -> usize {
+    let disk = create_disk(input);
+    println!("disk {}", disk_to_string(&disk));
+    let compress = compress(disk);
+    println!("compressed {}", disk_to_string(&compress));
+    checksum(compress)
+}
+
 fn part_one() {
     let input = fs::read_to_string("./src/puzzle.txt").unwrap();
-    let create = create(input.trim());
-    let compress = compress(&create);
-    let checksum = checksum(&compress);
+    let result = process(input.trim());
 
-    println!("Part one Checksum = {}", checksum);
+    println!("Part one Checksum = {}", result);
+}
+
+fn disk_to_string(disk: &Disk) -> String {
+    let mut result = "".to_owned();
+    for i in disk {
+        match i {
+            Some(num) => result += &num.to_string(),
+            None => result += ".",
+        }
+    }
+    result
 }
 
 fn main() {
@@ -79,34 +105,24 @@ fn main() {
 #[test]
 fn test_example() {
     let example = "2333133121414131402";
-    let result = create(example);
+    let result = create_disk(example);
 
-    assert_eq!(result, "00...111...2...333.44.5555.6666.777.888899");
-}
-
-#[test]
-fn test_compress() {
-    let test = "0..111....22222";
-    let result = compress(test);
-
-    assert_eq!(result, "022111222......");
-}
-
-#[test]
-fn test_checksum() {
-    let example = "0099811188827773336446555566..............";
-    let result = checksum(example);
-
-    assert_eq!(result, 1928)
+    assert_eq!(
+        disk_to_string(&result),
+        "00...111...2...333.44.5555.6666.777.888899"
+    );
 }
 
 #[test]
 fn test_part_one_example() {
     let example = "2333133121414131402";
-    let create = create(example.trim());
-    println!("create = {}", create);
-    let compress = compress(&create);
-    println!("compress = {}", compress);
-    let checksum = checksum(&compress);
+    let checksum = process(example);
     assert_eq!(checksum, 1928)
+}
+
+#[test]
+fn test_edge_case() {
+    let edge_case = "1010101010101010101010";
+    let checksum = process(edge_case);
+    assert_eq!(checksum, 385);
 }
