@@ -1,7 +1,7 @@
 use std::ops::{Add, AddAssign, Sub};
 
 impl Vector {
-    pub fn new(x: isize, y: isize) -> Vector {
+    pub const fn new(x: isize, y: isize) -> Vector {
         Vector { x, y }
     }
 
