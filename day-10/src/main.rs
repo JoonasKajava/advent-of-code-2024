@@ -1,8 +1,6 @@
-use std::{cmp::max, collections::HashMap, fs};
+use std::{collections::HashMap, fs};
 
 use shared::vector::Vector;
-
-enum TrailResult {}
 
 type Tile = u32;
 
@@ -15,13 +13,19 @@ const DIRECTIONS: [Vector; 4] = [
     Vector::new(1, 0),
 ];
 
-fn walk(map: &Map, trailheads: &mut Vec<Vector>, position: Vector, previous_height: Option<Tile>) {
+fn walk(
+    map: &Map,
+    trailheads: &mut Vec<Vector>,
+    position: Vector,
+    previous_height: Option<Tile>,
+    find_all: bool,
+) {
     let Some(current_height) = map.get(&position) else {
         return;
     };
 
     if let Some(prev) = previous_height {
-        if *current_height != prev + 1 || trailheads.contains(&position) {
+        if *current_height != prev + 1 || (trailheads.contains(&position) && !find_all) {
             return;
         }
     }
@@ -32,17 +36,23 @@ fn walk(map: &Map, trailheads: &mut Vec<Vector>, position: Vector, previous_heig
     }
 
     for direction in DIRECTIONS {
-        walk(map, trailheads, position + direction, Some(*current_height));
+        walk(
+            map,
+            trailheads,
+            position + direction,
+            Some(*current_height),
+            find_all,
+        );
     }
 }
 
-fn find_trailheads(map: &Map) -> usize {
+fn find_trailheads(map: &Map, find_all: bool) -> usize {
     let starting_positions = map.iter().filter(|x| *x.1 == 0);
 
     let mut trailheads = 0usize;
     for (position, _) in starting_positions {
         let mut found = vec![];
-        walk(map, &mut found, *position, None);
+        walk(map, &mut found, *position, None, find_all);
         trailheads += found.len();
     }
     trailheads
@@ -65,8 +75,11 @@ fn main() {
     let input = fs::read_to_string("./src/puzzle.txt").unwrap();
     let map = parse_map(&input);
 
-    let trailheads = find_trailheads(&map);
+    let trailheads = find_trailheads(&map, false);
     println!("Part one result {}", trailheads);
+
+    let trailheads = find_trailheads(&map, true);
+    println!("Part two result {}", trailheads);
 }
 
 #[test]
@@ -74,14 +87,24 @@ fn test_example_part_one() {
     let example = fs::read_to_string("./src/example.txt").unwrap();
     let map = parse_map(&example);
 
-    let trailheads = find_trailheads(&map);
+    let trailheads = find_trailheads(&map, false);
     assert_eq!(trailheads, 36);
 }
+
+#[test]
+fn test_example_part_two() {
+    let example = fs::read_to_string("./src/example.txt").unwrap();
+    let map = parse_map(&example);
+
+    let trailheads = find_trailheads(&map, true);
+    assert_eq!(trailheads, 81);
+}
+
 #[test]
 fn test_example2() {
     let example = fs::read_to_string("./src/example2.txt").unwrap();
     let map = parse_map(&example);
 
-    let trailheads = find_trailheads(&map);
+    let trailheads = find_trailheads(&map, false);
     assert_eq!(trailheads, 4);
 }
