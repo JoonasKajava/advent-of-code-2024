@@ -1,128 +1,86 @@
 use std::fs;
 
-#[derive(PartialEq, Eq, Debug)]
-enum Report {
-    Safe,
-    Unsafe,
-}
+fn classify(
+    numbers: &Vec<isize>,
+    at: usize,
+    prev_number: Option<isize>,
+    mut ascending: Option<bool>,
+    mut can_use_skip: bool,
+) -> bool {
+    let mut num = match numbers.get(at) {
+        Some(n) => *n,
+        None => return true,
+    };
 
-fn validate_pair(previous: Option<&usize>, first: usize, second: usize) -> bool {
-    if first == second {
-        return false;
-    }
-    let diff = first.abs_diff(second);
-    if !(1..=3).contains(&diff) {
-        return false;
-    }
+    let mut skip = false;
+    if let Some(prev) = prev_number {
+        let asc = num > prev;
+        let diff = prev.abs_diff(num);
+        let diff = !(1..=3).contains(&diff);
+        let mut result = true;
+        if diff {
+            result = false;
+        }
+        if let Some(ascending) = ascending {
+            if asc != ascending {
+                result = false;
+            }
+        } else {
+            ascending = Some(asc);
+        }
 
-    if let Some(previous) = previous {
-        if (*previous < first) == (first > second) {
+        if can_use_skip && !result {
+            skip = true;
+        } else if !result {
             return false;
         }
     }
 
-    true
-}
-
-fn classify_reportv2(mut report: Vec<usize>, mut allowed_removals: usize) -> Report {
-    let mut i = 0;
-    println!("report {:?}", report);
-    while i < report.len() {
-        let mut skip = false;
-        let previous = if i > 0 { report.get(i - 1) } else { None };
-        let current = report[i];
-        let next = report.get(i + 1);
-        if let Some(next) = next {
-            println!("previous {:?} current {} next {}", previous, current, next);
-            let result = validate_pair(previous, current, *next);
-            // I do not understand why this skipping does not work when using real input
-            // Otherwise it works perfectly
-            // It's too late, I will just use the brute_classify_report
-            if !result && allowed_removals > 0 {
-                report.remove(i);
-                println!("skip {}", current);
-                i = i.saturating_sub(1);
-                skip = true;
-                allowed_removals -= 1;
-            } else if !result {
-                return Report::Unsafe;
-            }
-        }
-        if !skip {
-            i += 1;
-        }
+    if skip
+        && classify(
+            numbers,
+            at + 1,
+            Some(prev_number.unwrap()),
+            ascending,
+            false,
+        )
+    {
+        return true;
     }
 
-    Report::Safe
+    if classify(numbers, at + 1, Some(num), ascending, can_use_skip) {
+        return true;
+    }
+    false
 }
 
-fn brute_classify_report(report: Vec<usize>) -> Report {
-    let mut rep = Report::Unsafe;
-    for i in 0..report.len() {
-        let mut clone = report.clone();
-        clone.remove(i);
-        if classify_reportv2(clone, 0) == Report::Safe {
-            rep = Report::Safe;
-            break;
-        }
+fn parse(input: &str) -> Vec<Vec<isize>> {
+    let mut result = vec![];
+    for line in input.lines() {
+        result.push(
+            line.split(' ')
+                .map(|x| x.parse::<isize>().unwrap())
+                .collect(),
+        );
     }
-    rep
+    result
 }
+
 fn main() {
-    let _example = fs::read_to_string("./src/example-data.txt").unwrap();
-    let _real = fs::read_to_string("./src/puzzle-input.txt").unwrap();
-    let count = _real
-        .lines()
-        .map(|i| {
-            let numbers = i
-                .split(' ')
-                .filter_map(|x| x.parse::<usize>().ok())
-                .collect::<Vec<usize>>();
-            brute_classify_report(numbers)
-        })
-        .filter(|f| *f == Report::Safe)
+    let input = fs::read_to_string("./src/puzzle-input.txt").unwrap();
+    let parsed = parse(&input);
+
+    let count = parsed
+        .iter()
+        .map(|x| classify(x, 0, None, None, false))
+        .filter(|x| *x)
         .count();
-    println!("Safe reports: {}", count);
-}
+    let count2 = parsed
+        .iter()
+        .map(|x| classify(x, 0, None, None, true))
+        .filter(|x| *x)
+        .count();
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_classify_part1() {
-        assert_eq!(classify_reportv2(vec![7, 6, 4, 2, 1], 0), Report::Safe);
-        assert_eq!(classify_reportv2(vec![1, 2, 7, 8, 9], 0), Report::Unsafe);
-        assert_eq!(classify_reportv2(vec![9, 7, 6, 2, 1], 0), Report::Unsafe);
-        assert_eq!(classify_reportv2(vec![1, 3, 2, 4, 5], 0), Report::Unsafe);
-        assert_eq!(classify_reportv2(vec![8, 6, 4, 4, 1], 0), Report::Unsafe);
-        assert_eq!(classify_reportv2(vec![1, 3, 6, 7, 9], 0), Report::Safe);
-    }
-    #[test]
-    fn test_classify_part2() {
-        assert_eq!(classify_reportv2(vec![7, 6, 4, 2, 1], 1), Report::Safe);
-        assert_eq!(classify_reportv2(vec![1, 2, 7, 8, 9], 1), Report::Unsafe);
-        assert_eq!(classify_reportv2(vec![9, 7, 6, 2, 1], 1), Report::Unsafe);
-        assert_eq!(classify_reportv2(vec![1, 3, 2, 4, 5], 1), Report::Safe);
-        assert_eq!(classify_reportv2(vec![8, 6, 4, 4, 1], 1), Report::Safe);
-        assert_eq!(classify_reportv2(vec![1, 3, 6, 7, 9], 1), Report::Safe);
-    }
-    #[test]
-    fn test_brute() {
-        assert_eq!(brute_classify_report(vec![7, 6, 4, 2, 1]), Report::Safe);
-        assert_eq!(brute_classify_report(vec![1, 2, 7, 8, 9]), Report::Unsafe);
-        assert_eq!(brute_classify_report(vec![9, 7, 6, 2, 1]), Report::Unsafe);
-        assert_eq!(brute_classify_report(vec![1, 3, 2, 4, 5]), Report::Safe);
-        assert_eq!(brute_classify_report(vec![8, 6, 4, 4, 1]), Report::Safe);
-        assert_eq!(brute_classify_report(vec![1, 3, 6, 7, 9]), Report::Safe);
-    }
-    #[test]
-    fn test_validate_pair() {
-        assert_eq!(validate_pair(Some(&1), 3, 2), false);
-        assert_eq!(validate_pair(Some(&6), 4, 4), false);
-        assert_eq!(validate_pair(None, 1, 5), false);
-        assert_eq!(validate_pair(None, 5, 1), false);
-        assert_eq!(validate_pair(None, 2, 1), true);
-        assert_eq!(validate_pair(Some(&1), 1, 1), false);
-    }
+    println!("Safe reports part 1: {}", count);
+    println!("Safe reports part 2: {}", count2);
 }
