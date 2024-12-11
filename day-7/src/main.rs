@@ -1,229 +1,148 @@
-use std::{collections::HashMap, fs};
+use std::{cmp::max, fs};
 
-struct PermutationGenerator {
-    permutations: Vec<Vec<Operator>>,
-}
-
-impl PermutationGenerator {
-    fn new() -> Self {
-        Self {
-            permutations: vec![],
-        }
-    }
-    fn generate(&mut self, set: &Vec<Operator>, len: usize) {
-        self.generate_rec(set, vec![], set.len(), len)
-    }
-    fn generate_rec(
-        &mut self,
-        set: &Vec<Operator>,
-        permutation: Vec<Operator>,
-        n: usize,
-        k: usize,
-    ) {
-        if k == 0 {
-            self.permutations.push(permutation);
-            return;
-        }
-        for i in 0..n {
-            let mut perm = permutation.clone();
-            perm.push(set.get(i).unwrap().clone());
-            self.generate_rec(set, perm, n, k - 1);
-        }
-    }
-}
-
+#[derive(Debug)]
 struct Equation {
-    result: isize,
-    numbers: Vec<isize>,
+    result: usize,
+    nums: Vec<usize>,
 }
 
-#[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone)]
-enum Operator {
-    Add,
-    Multiply,
-    Concatenation,
+fn concat(a: usize, b: usize) -> usize {
+    (a.to_string() + &b.to_string()).parse().unwrap()
 }
 
-#[derive(PartialEq, Eq, PartialOrd, Ord, Debug)]
-enum CalculationResult {
-    Success {
-        result: isize,
-        operator_configurations: Vec<Vec<Operator>>,
-    },
-    Impossible,
-}
-
-fn parse_line(line: &str) -> Equation {
-    let (result, numbers) = line.split_once(':').unwrap();
-    Equation {
-        result: result.parse::<isize>().unwrap(),
-        numbers: numbers
-            .trim()
-            .split(' ')
-            .map(|x| x.parse::<isize>().unwrap())
-            .collect(),
-    }
-}
-
-fn concat_nums(a: isize, b: isize) -> isize {
-    (a.to_string() + &b.to_string()).parse::<isize>().unwrap()
-}
-
-fn calculate(line: &str) -> CalculationResult {
-    let parsed = parse_line(line);
-
-    let mut generator = PermutationGenerator::new();
-
-    generator.generate(
-        &vec![Operator::Add, Operator::Multiply, Operator::Concatenation],
-        parsed.numbers.len() - 1,
-    );
-
-    let operator_configurations_to_test: Vec<Vec<Operator>> = generator.permutations;
-
-    let mut successful_permutations: Vec<Vec<Operator>> = vec![];
-
-    for operator_config in operator_configurations_to_test {
-        let calculated_result = parsed
-            .numbers
-            .iter()
-            .enumerate()
-            .fold(0isize, |a, (index, b)| {
-                if index == 0 {
-                    return *b;
-                }
-                match operator_config.get(index - 1).unwrap() {
-                    Operator::Add => a + b,
-                    Operator::Multiply => a * b,
-                    Operator::Concatenation => concat_nums(a, *b),
-                }
-            });
-
-        if calculated_result == parsed.result {
-            successful_permutations.push(operator_config);
-        }
+fn calculate(eq: &Equation, cumulative_result: usize, at: usize, part2: bool) -> bool {
+    if cumulative_result > eq.result {
+        return false;
     }
 
-    if !successful_permutations.is_empty() {
-        return CalculationResult::Success {
-            result: parsed.result,
-            operator_configurations: successful_permutations,
-        };
+    let Some(num) = eq.nums.get(at) else {
+        return cumulative_result == eq.result;
+    };
+
+    if calculate(eq, cumulative_result + num, at + 1, part2) {
+        return true;
     }
-    CalculationResult::Impossible
+
+    if calculate(eq, max(cumulative_result, 1) * num, at + 1, part2) {
+        return true;
+    }
+    if part2 && calculate(eq, concat(cumulative_result, *num), at + 1, part2) {
+        return true;
+    }
+
+    false
 }
 
-fn sum_succesful(input: &str) -> isize {
-    let mut sum = 0isize;
+fn parse(input: &str) -> Vec<Equation> {
+    let mut result = vec![];
+
     for line in input.lines() {
-        match calculate(line) {
-            CalculationResult::Success {
-                result,
-                operator_configurations: _,
-            } => {
-                sum += result;
-            }
-            CalculationResult::Impossible => continue,
-        }
+        let (e_result, numbers) = line.split_once(':').unwrap();
+        result.push(Equation {
+            result: e_result.parse::<usize>().unwrap(),
+            nums: numbers
+                .trim()
+                .split(' ')
+                .map(|x| x.parse::<usize>())
+                .filter_map(|x| x.ok())
+                .collect(),
+        });
     }
-    sum
+    result
 }
 
 fn main() {
     let input = fs::read_to_string("./src/input.txt").unwrap();
-    let sum = sum_succesful(&input);
-    println!("Sum: {}", sum);
+    let parsed = parse(&input);
+    let results: usize = parsed
+        .iter()
+        .filter_map(|x| {
+            if calculate(x, 0, 0, false) {
+                Some(x.result)
+            } else {
+                None
+            }
+        })
+        .sum();
+
+    println!("part one results = {}", results);
+
+    let part_2_results: usize = parsed
+        .iter()
+        .filter_map(|x| {
+            if calculate(x, 0, 0, true) {
+                Some(x.result)
+            } else {
+                None
+            }
+        })
+        .sum();
+
+    println!("part two results = {}", part_2_results);
 }
 
 #[test]
-fn test_generate_configurations() {
-    let operators = vec![Operator::Add, Operator::Multiply];
-
-    let sorted = |mut x: Vec<Vec<Operator>>| {
-        x.sort();
-        x
-    };
-
-    let mut generator = PermutationGenerator::new();
-    generator.generate(&operators, 1);
-    assert_eq!(
-        sorted(generator.permutations),
-        sorted(vec![vec![Operator::Add], vec![Operator::Multiply]])
-    );
-
-    let mut generator = PermutationGenerator::new();
-    generator.generate(&operators, 2);
-    assert_eq!(
-        sorted(generator.permutations),
-        sorted(vec![
-            vec![Operator::Add, Operator::Add],
-            vec![Operator::Multiply, Operator::Multiply],
-            vec![Operator::Add, Operator::Multiply],
-            vec![Operator::Multiply, Operator::Add]
-        ])
-    );
-}
-
-#[test]
-fn test_calculcations() {
-    assert_eq!(
-        calculate("190: 10 19"),
-        CalculationResult::Success {
+fn test_equations() {
+    assert!(calculate(
+        &Equation {
             result: 190,
-            operator_configurations: vec![vec![Operator::Multiply]]
-        }
-    );
-    assert_eq!(
-        calculate("3267: 81 40 27"),
-        CalculationResult::Success {
+            nums: vec![10, 19]
+        },
+        0,
+        0,
+        false
+    ));
+
+    assert!(calculate(
+        &Equation {
             result: 3267,
-            operator_configurations: vec![
-                vec![Operator::Add, Operator::Multiply],
-                vec![Operator::Multiply, Operator::Add]
-            ]
-        }
-    );
-    assert_eq!(calculate("83: 17 5"), CalculationResult::Impossible);
-    //assert_eq!(calculate("156: 15 6"), CalculationResult::Impossible);
-    assert_eq!(calculate("161011: 16 10 13"), CalculationResult::Impossible);
-    assert_eq!(calculate("21037: 9 7 18 13"), CalculationResult::Impossible);
-    assert_eq!(
-        calculate("292: 11 6 16 20"),
-        CalculationResult::Success {
-            result: 292,
-            operator_configurations: vec![vec![Operator::Add, Operator::Multiply, Operator::Add],]
-        }
-    );
-
-    assert_ne!(
-        calculate("156: 15 6"),
-        CalculationResult::Success {
-            result: 156,
-            operator_configurations: vec![vec![Operator::Concatenation]]
-        }
-    );
-
-    assert_eq!(
-        calculate("7290: 6 8 6 15"),
-        CalculationResult::Success {
-            result: 7290,
-            operator_configurations: vec![vec![
-                Operator::Multiply,
-                Operator::Concatenation,
-                Operator::Multiply
-            ]]
-        }
-    );
-    assert_eq!(
-        calculate("192: 17 8 14"),
-        CalculationResult::Success {
-            result: 192,
-            operator_configurations: vec![vec![Operator::Concatenation, Operator::Add]]
-        }
-    );
+            nums: vec![81, 40, 27]
+        },
+        0,
+        0,
+        false
+    ))
 }
 
 #[test]
 fn test_concat() {
-    assert_eq!(concat_nums(15, 6), 156);
+    assert_eq!(concat(214, 324), 214324);
+}
+
+#[test]
+fn test_part1() {
+    let input = fs::read_to_string("./src/example.txt").unwrap();
+    let parsed = parse(&input);
+    println!("parsed {:?}", parsed);
+    let results: usize = parsed
+        .iter()
+        .map(|x| {
+            if calculate(x, 0, 0, false) {
+                x.result
+            } else {
+                0
+            }
+        })
+        .sum();
+
+    assert_eq!(results, 3749);
+}
+
+#[test]
+fn test_part2() {
+    let input = fs::read_to_string("./src/example.txt").unwrap();
+    let parsed = parse(&input);
+    println!("parsed {:?}", parsed);
+    let results: usize = parsed
+        .iter()
+        .filter_map(|x| {
+            if calculate(x, 0, 0, true) {
+                Some(x.result)
+            } else {
+                None
+            }
+        })
+        .sum();
+
+    assert_eq!(results, 11387);
 }
