@@ -17,12 +17,15 @@ struct Machine {
 }
 
 impl Machine {
-    fn calculate(&self) -> Option<Number> {
-        let det = self.a_x * self.b_y - self.a_y * self.b_x;
-        let a = (self.p_x * self.b_y - self.p_y * self.b_x) / det;
-        let b = (self.a_x * self.p_y - self.a_y * self.p_x) / det;
+    fn calculate(&self, prize_offset: Number) -> Option<Number> {
+        let p_x = self.p_x + prize_offset;
+        let p_y = self.p_y + prize_offset;
 
-        if (self.a_x * a + self.b_x * b, self.a_y * a + self.b_y * b) == (self.p_x, self.p_y) {
+        let det = self.a_x * self.b_y - self.a_y * self.b_x;
+        let a = (p_x * self.b_y - p_y * self.b_x) / det;
+        let b = (self.a_x * p_y - self.a_y * p_x) / det;
+
+        if (self.a_x * a + self.b_x * b, self.a_y * a + self.b_y * b) == (p_x, p_y) {
             Some(a * 3 + b)
         } else {
             None
@@ -41,8 +44,8 @@ fn parse(input: &str) -> Vec<Machine> {
     let parse_two = |s: &str, regex: &Regex| {
         let (_, [first, second]) = regex.captures_iter(s).map(|c| c.extract()).next().unwrap();
         (
-            first.parse::<isize>().unwrap(),
-            second.parse::<isize>().unwrap(),
+            first.parse::<Number>().unwrap(),
+            second.parse::<Number>().unwrap(),
         )
     };
 
@@ -84,8 +87,14 @@ fn main() {
     let input = fs::read_to_string("./src/input.txt").unwrap();
     let machines = parse(&input);
 
-    let result: isize = machines.iter().filter_map(|x| x.calculate()).sum();
+    let result: Number = machines.iter().filter_map(|x| x.calculate(0)).sum();
     println!("part one {}", result);
+
+    let result: Number = machines
+        .iter()
+        .filter_map(|x| x.calculate(10000000000000))
+        .sum();
+    println!("part two {}", result);
 }
 
 #[test]
@@ -99,7 +108,7 @@ fn test_calc() {
         p_y: 5400,
     };
 
-    assert_eq!(machine.calculate(), Some(280));
+    assert_eq!(machine.calculate(0), Some(280));
 
     let machine = Machine {
         a_x: 26,
@@ -110,7 +119,7 @@ fn test_calc() {
         p_y: 12176,
     };
 
-    assert_eq!(machine.calculate(), None);
+    assert_eq!(machine.calculate(0), None);
 }
 
 #[test]
@@ -118,6 +127,6 @@ fn test_example() {
     let example = fs::read_to_string("./src/example.txt").unwrap();
     let machines = parse(&example);
 
-    let result: isize = machines.iter().filter_map(|x| x.calculate()).sum();
+    let result: isize = machines.iter().filter_map(|x| x.calculate(0)).sum();
     assert_eq!(result, 480);
 }
