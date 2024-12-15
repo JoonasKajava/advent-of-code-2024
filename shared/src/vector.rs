@@ -33,6 +33,18 @@ impl Add<Vector> for Vector {
         }
     }
 }
+
+impl<'a, 'b> Add<&'b Vector> for &'a Vector {
+    type Output = Vector;
+
+    fn add(self, rhs: &'b Vector) -> Self::Output {
+        Self::Output {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+        }
+    }
+}
+
 impl Sub<&Vector> for &Vector {
     type Output = Vector;
 
