@@ -1,4 +1,8 @@
-use std::{collections::HashMap, fs};
+use std::{
+    cmp::{max, min},
+    collections::HashMap,
+    fs,
+};
 
 use shared::vector::Vector;
 
@@ -11,23 +15,103 @@ struct Warehouse {
 
 impl Warehouse {
     // returns true if box moved
-    fn move_box(&mut self, at: &Vector, direction: &Vector, is_first: bool) -> bool {
+
+    fn horizontal_move(&mut self, at: Vector, direction: Vector) -> bool {
+        let mut first_free_position: Option<Vector> = None;
+        let mut offset = at;
+        loop {
+            let next_pos = offset + direction;
+            let Some(tile) = self.tiles.get(&next_pos) else {
+                break;
+            };
+
+            if let Tile::Empty = tile {
+                first_free_position = Some(next_pos);
+                break;
+            }
+            offset += direction;
+        }
+
+        if let Some(v) = first_free_position {
+            let start = min(at.x, v.x);
+            let end = max(at.x, v.x);
+
+            let mut counter = 0;
+            for i in start..=end {
+                match counter % 2 {
+                    0 => self.tiles.insert((i, at.y).into(), Tile::RightBox),
+                    1 => self.tiles.insert((i, at.y).into(), Tile::LeftBox),
+                    _ => unreachable!(),
+                };
+                counter += 1;
+            }
+            self.tiles.insert(at, Tile::Empty);
+        }
+        first_free_position.is_some()
+    }
+
+    fn move_box(&mut self, at: Vector, direction: Vector, is_first: bool) -> bool {
         let next_pos = at + direction;
         let next_tile = self.tiles.get(&next_pos).expect("should always return");
+        let current_tile = *self.tiles.get(&at).expect("should always return");
 
-        let box_moved;
+        let mut box_moved = false;
         match next_tile {
             Tile::Wall => box_moved = false,
-            Tile::Box => box_moved = self.move_box(&next_pos, direction, false),
-            Tile::Robot => unreachable!(),
-            Tile::Empty => {
-                box_moved = true;
-                self.tiles.insert(next_pos, Tile::Box);
+            Tile::LeftBox => {
+                box_moved = self.move_box(next_pos, direction, false)
+                    && self.move_box(next_pos + RIGHT, direction, false)
             }
+            Tile::RightBox => {
+                box_moved = self.move_box(next_pos, direction, false)
+                    && self.move_box(next_pos + LEFT, direction, false)
+            }
+            Tile::Empty => {
+                if direction == LEFT || direction == RIGHT {
+                    let next_next_position = next_pos + direction;
+                    let next_next_tile = self
+                        .tiles
+                        .get(&next_next_position)
+                        .expect("Should always return");
+                    if let Tile::Empty = next_next_tile {
+                        self.tiles.insert(next_pos, Tile::RightBox);
+                        self.tiles.insert(next_next_position, Tile::LeftBox);
+                        box_moved = true;
+                    }
+                } else {
+                    box_moved = true;
+                    match &current_tile {
+                        Tile::LeftBox => {
+                            self.tiles.insert(next_pos + RIGHT, Tile::RightBox);
+                            self.tiles.insert(next_pos, Tile::LeftBox);
+                        }
+                        Tile::RightBox => {
+                            self.tiles.insert(next_pos + LEFT, Tile::LeftBox);
+                            self.tiles.insert(next_pos, Tile::RightBox);
+                        }
+                        _ => unreachable!(),
+                    };
+                }
+            }
+            _ => unreachable!(),
         };
 
         if box_moved && is_first {
-            self.tiles.insert(*at, Tile::Empty);
+            if direction == LEFT || direction == RIGHT {
+                self.tiles.insert(at, Tile::Empty);
+                self.tiles.insert(at + direction, Tile::Empty);
+            }
+            match current_tile {
+                Tile::LeftBox => {
+                    self.tiles.insert(at + RIGHT, Tile::Empty);
+                    self.tiles.insert(at, Tile::Empty);
+                }
+                Tile::RightBox => {
+                    self.tiles.insert(at + LEFT, Tile::Empty);
+                    self.tiles.insert(at, Tile::Empty);
+                }
+                _ => unreachable!(),
+            };
         }
         box_moved
     }
@@ -39,15 +123,33 @@ impl Warehouse {
             .get(&new_pos)
             .expect("Robot cannot escape the warehouse");
 
+        let is_horizontal_move = movement == LEFT || movement == RIGHT;
         match tile {
             Tile::Wall => (),
-            Tile::Box => {
-                if self.move_box(&new_pos, &movement, true) {
+            Tile::LeftBox => {
+                if is_horizontal_move {
+                    if self.horizontal_move(new_pos, movement) {
+                        self.robot_position = new_pos;
+                    }
+                } else if self.move_box(new_pos, movement, true)
+                    && self.move_box(new_pos + RIGHT, movement, true)
+                {
                     self.robot_position = new_pos;
                 }
             }
-            Tile::Robot => unreachable!(),
+            Tile::RightBox => {
+                if is_horizontal_move {
+                    if self.horizontal_move(new_pos, movement) {
+                        self.robot_position = new_pos;
+                    }
+                } else if self.move_box(new_pos, movement, true)
+                    && self.move_box(new_pos + LEFT, movement, true)
+                {
+                    self.robot_position = new_pos;
+                }
+            }
             Tile::Empty => self.robot_position = new_pos,
+            _ => unreachable!(),
         };
     }
 
@@ -66,9 +168,11 @@ impl Warehouse {
                 } else {
                     result += match tile {
                         Tile::Wall => "#",
-                        Tile::Box => "O",
                         Tile::Robot => "@",
                         Tile::Empty => ".",
+                        Tile::LeftBox => "[",
+                        Tile::RightBox => "]",
+                        Tile::Box => unreachable!(),
                     }
                 }
             }
@@ -80,18 +184,20 @@ impl Warehouse {
     fn sum_gps_coords(&self) -> isize {
         self.tiles
             .iter()
-            .filter(|x| *x.1 == Tile::Box)
+            .filter(|x| *x.1 == Tile::LeftBox)
             .map(|x| x.0.y * 100 + x.0.x)
             .sum()
     }
 }
 
-#[derive(PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 enum Tile {
     Wall,
-    Box,
+    LeftBox,
+    RightBox,
     Robot,
     Empty,
+    Box,
 }
 
 type RobotMovements = Vec<Vector>;
@@ -112,6 +218,8 @@ fn parse_tile(char: char) -> Tile {
         '.' => Tile::Empty,
         '@' => Tile::Robot,
         'O' => Tile::Box,
+        '[' => Tile::LeftBox,
+        ']' => Tile::RightBox,
         _ => unreachable!(),
     }
 }
@@ -130,14 +238,20 @@ fn parse(input: &str) -> Warehouse {
             continue;
         }
         for (x, char) in line.chars().enumerate() {
+            let x = x * 2;
             if !warehouse_parsed {
                 let tile = parse_tile(char);
                 let pos = (x as isize, y as isize).into();
                 if tile == Tile::Robot {
                     warehouse.robot_position = pos;
                     warehouse.tiles.insert(pos, Tile::Empty);
+                    warehouse.tiles.insert(pos + RIGHT, Tile::Empty);
+                } else if let Tile::Box = tile {
+                    warehouse.tiles.insert(pos, Tile::LeftBox);
+                    warehouse.tiles.insert(pos + RIGHT, Tile::RightBox);
                 } else {
                     warehouse.tiles.insert(pos, tile);
+                    warehouse.tiles.insert(pos + RIGHT, tile);
                 }
             } else {
                 warehouse.robot_movements.push(parse_direction(char));
