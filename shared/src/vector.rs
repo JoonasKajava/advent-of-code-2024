@@ -1,4 +1,4 @@
-use std::ops::{Add, AddAssign, Sub};
+use std::ops::{Add, AddAssign, Mul, Sub};
 
 impl Vector {
     pub const fn new(x: isize, y: isize) -> Vector {
@@ -53,6 +53,23 @@ impl Sub<&Vector> for &Vector {
             x: self.x - rhs.x,
             y: self.y - rhs.y,
         }
+    }
+}
+
+impl Mul<isize> for Vector {
+    type Output = Vector;
+
+    fn mul(self, rhs: isize) -> Self::Output {
+        Vector {
+            x: self.x * rhs,
+            y: self.y * rhs,
+        }
+    }
+}
+
+impl From<(isize, isize)> for Vector {
+    fn from(value: (isize, isize)) -> Self {
+        Vector::new(value.0, value.1)
     }
 }
 
