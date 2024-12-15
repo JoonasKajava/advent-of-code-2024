@@ -73,7 +73,7 @@ impl From<(isize, isize)> for Vector {
     }
 }
 
-#[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Copy, Clone, Hash)]
+#[derive(Default, PartialEq, Eq, PartialOrd, Ord, Debug, Copy, Clone, Hash)]
 pub struct Vector {
     pub x: isize,
     pub y: isize,
