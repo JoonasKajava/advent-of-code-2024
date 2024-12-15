@@ -81,6 +81,26 @@ impl From<&str> for Robot {
 fn parse_robots(input: &str) -> Vec<Robot> {
     input.lines().map(Robot::from).collect()
 }
+fn output(robots: &[Robot]) -> String {
+    let max_x = robots.iter().map(|x| x.position.x).max().unwrap();
+    let max_y = robots.iter().map(|y| y.position.y).max().unwrap();
+
+    let mut result = "".to_string();
+    for y in 0..max_y {
+        for x in 0..max_x {
+            let robots_here = robots
+                .iter()
+                .filter(|robot| robot.position == Vector::new(x, y))
+                .count();
+            result = match robots_here {
+                0 => result + ".",
+                count => result + &count.to_string(),
+            };
+        }
+        result += "\n";
+    }
+    result.to_owned()
+}
 
 fn get_safety_factor(robots: &[Robot], map: &Map) -> usize {
     let top_left = map.count_robots_in_quadrant(robots, Quadrant::TopLeft);
@@ -101,6 +121,16 @@ fn main() {
     robots.iter_mut().for_each(|x| x.navigate(&map, 100));
 
     println!("part one {}", get_safety_factor(&robots, &map));
+
+    println!("part two start");
+
+    let mut robots = parse_robots(&input);
+
+    for i in 0..10000 {
+        println!("i {}", i + 1);
+        robots.iter_mut().for_each(|x| x.navigate(&map, 1));
+        println!("{}", output(&robots));
+    }
 }
 
 #[test]
